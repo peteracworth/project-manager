@@ -94,7 +94,11 @@ export default function ProjectsPage() {
                 <p className="text-gray-500">Loading projects...</p>
               </div>
             ) : (
-              <TabulatorProjectsTable projects={projects} onUpdate={handleUpdateProject} />
+              <TabulatorProjectsTable
+                projects={projects}
+                onUpdate={handleUpdateProject}
+                onTeamRosterUpdate={fetchProjects}
+              />
             )}
           </TabsContent>
 

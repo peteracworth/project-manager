@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { TabulatorFull as Tabulator } from "tabulator-tables";
 import { Project, User } from "@/types/database";
 import { Input } from "@/components/ui/input";
@@ -20,19 +20,20 @@ import "tabulator-tables/dist/css/tabulator.min.css";
 interface TabulatorProjectsTableProps {
   projects: Project[];
   onUpdate?: (projectId: string, field: string, value: any) => Promise<void>;
+  onTeamRosterUpdate?: () => Promise<void>;
 }
 
 const STATUS_OPTIONS = ["Not Started", "In Progress", "On Hold", "Completed", "Cancelled"];
 const PRIORITY_OPTIONS = ["P1", "P2", "P3", "P4"];
 const TASK_PROGRESS_OPTIONS = ["Not Started", "In Progress", "Blocked", "On Hold", "Completed", "Cancelled"];
 
-export function TabulatorProjectsTable({ projects, onUpdate }: TabulatorProjectsTableProps) {
+export function TabulatorProjectsTable({ projects, onUpdate, onTeamRosterUpdate }: TabulatorProjectsTableProps) {
   const tableRef = useRef<HTMLDivElement>(null);
   const tabulatorInstance = useRef<Tabulator | null>(null);
+  const isInitializedRef = useRef(false);
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [groupByColumn, setGroupByColumn] = useState<string>("none");
-  const isInitializedRef = useRef(false);
   const [editingTeamRoster, setEditingTeamRoster] = useState<{
     projectId: string;
     currentUserIds: string[];
@@ -98,20 +99,32 @@ export function TabulatorProjectsTable({ projects, onUpdate }: TabulatorProjects
         body: JSON.stringify({ user_ids: selectedUserIds }),
       });
 
-      if (!response.ok) throw new Error('Failed to update team roster');
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+        console.error('Failed to update team roster:', response.status, errorData);
+        throw new Error(`Failed to update team roster: ${errorData.error || response.statusText}`);
+      }
 
       // Close the editor
       setEditingTeamRoster(null);
 
-      // The parent will refetch projects automatically
+      // Notify parent to refetch projects
+      if (onTeamRosterUpdate) {
+        await onTeamRosterUpdate();
+      }
     } catch (error) {
       console.error('Failed to update team roster:', error);
+      alert('Failed to update team roster. Please try again.');
     }
   };
 
-  // Initialize table only once
-  useEffect(() => {
-    if (!tableRef.current || isInitializedRef.current || !projects.length) return;
+  // Initialize table only once (when we have both projects and users for the first time)
+  // Use useLayoutEffect to ensure this runs before the update effect
+  useLayoutEffect(() => {
+    // Only initialize once - don't reinitialize if already done
+    if (isInitializedRef.current) return;
+    // Wait until we have both data sources
+    if (!tableRef.current || !projects.length || !allUsers.length) return;
 
     const tableData = transformProjectData(projects);
 
@@ -289,19 +302,38 @@ export function TabulatorProjectsTable({ projects, onUpdate }: TabulatorProjects
     isInitializedRef.current = true;
 
     return () => {
+      // Reset the flag first to prevent other effects from trying to use the table
+      isInitializedRef.current = false;
       if (tabulatorInstance.current) {
-        tabulatorInstance.current.destroy();
-        isInitializedRef.current = false;
+        try {
+          tabulatorInstance.current.destroy();
+        } catch (error) {
+          console.error('Error destroying table:', error);
+        }
+        tabulatorInstance.current = null;
       }
     };
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projects.length, allUsers.length]);
 
   // Update table data when projects change (without recreating the table)
   useEffect(() => {
-    if (!tabulatorInstance.current || !isInitializedRef.current) return;
+    // Skip if table hasn't been initialized yet
+    if (!isInitializedRef.current) return;
 
-    const tableData = transformProjectData(projects);
-    tabulatorInstance.current.setData(tableData);
+    // Store instance in local variable to prevent race conditions
+    const instance = tabulatorInstance.current;
+    if (!instance) return;
+
+    try {
+      const tableData = transformProjectData(projects);
+      // Use the local variable which won't change during execution
+      if (typeof instance.setData === 'function') {
+        instance.setData(tableData);
+      }
+    } catch (error) {
+      console.error('Error updating table data:', error);
+    }
   }, [projects, allUsers]);
 
   // Handle search filter
