@@ -1,0 +1,138 @@
+// This is your Prisma schema file
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Users table (from Airtable "Contacts")
+model User {
+  id            String   @id @default(uuid())
+  email         String   @unique
+  name          String
+  avatar_url    String?
+  role          String   @default("member")
+  created_at    DateTime @default(now())
+  updated_at    DateTime @updatedAt
+
+  // Relations
+  assigned_projects  ProjectAssignment[]
+  uploaded_documents Document[]
+  messages          Message[]
+
+  @@map("users")
+}
+
+// Projects table (from Airtable "Task List")
+model Project {
+  id              String    @id @default(uuid())
+  title           String
+  description     String?
+  status          String
+  priority        String?
+  location        String?
+  tags            String[]
+  start_date      DateTime?
+  end_date        DateTime?
+  due_date        DateTime?
+  progress        Int       @default(0)
+  depends_on      String[]
+  created_at      DateTime  @default(now())
+  updated_at      DateTime  @updatedAt
+  created_by      String
+
+  // Relations
+  assignments     ProjectAssignment[]
+  documents       Document[]
+  messages        Message[]
+  items           Item[]
+
+  @@map("projects")
+}
+
+// Items table (from Airtable "Items and Purchases")
+model Item {
+  id              String    @id @default(uuid())
+  name            String
+  description     String?
+  category        String?
+  cost            Decimal?  @db.Decimal(10, 2)
+  quantity        Int?
+  purchased_date  DateTime?
+  vendor          String?
+  project_id      String?
+  created_at      DateTime  @default(now())
+  updated_at      DateTime  @updatedAt
+
+  // Relations
+  project         Project?  @relation(fields: [project_id], references: [id])
+
+  @@map("items")
+}
+
+// StaticInfo table (from Airtable "Static Information")
+model StaticInfo {
+  id            String   @id @default(uuid())
+  key           String   @unique
+  value         String
+  category      String?
+  description   String?
+  created_at    DateTime @default(now())
+  updated_at    DateTime @updatedAt
+
+  @@map("static_info")
+}
+
+// ProjectAssignment (Join Table)
+model ProjectAssignment {
+  id          String   @id @default(uuid())
+  project_id  String
+  user_id     String
+  role        String?
+  assigned_at DateTime @default(now())
+
+  project     Project  @relation(fields: [project_id], references: [id], onDelete: Cascade)
+  user        User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([project_id, user_id])
+  @@map("project_assignments")
+}
+
+// Documents table
+model Document {
+  id            String   @id @default(uuid())
+  project_id    String
+  filename      String
+  file_type     String
+  file_size     Int
+  storage_path  String
+  storage_url   String
+  thumbnail_url String?
+  uploaded_by   String
+  uploaded_at   DateTime @default(now())
+
+  project       Project  @relation(fields: [project_id], references: [id], onDelete: Cascade)
+  uploader      User     @relation(fields: [uploaded_by], references: [id])
+
+  @@map("documents")
+}
+
+// Messages table (Chat)
+model Message {
+  id          String   @id @default(uuid())
+  project_id  String
+  user_id     String
+  content     String
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  project     Project  @relation(fields: [project_id], references: [id], onDelete: Cascade)
+  user        User     @relation(fields: [user_id], references: [id])
+
+  @@map("messages")
+}
