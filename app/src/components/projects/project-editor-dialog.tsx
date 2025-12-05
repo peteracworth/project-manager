@@ -25,7 +25,7 @@ interface ProjectEditorDialogProps {
 }
 
 const PRIORITIES = ["P1", "P2", "P3", "P4"];
-const STATUSES = ["Not Started", "In Progress", "On Hold", "Completed", "Done"];
+const TASK_PROGRESS_OPTIONS = ["Not Started", "In Progress", "Blocked", "On Hold", "Completed", "Cancelled"];
 
 export function ProjectEditorDialog({
   isOpen,
@@ -42,14 +42,11 @@ export function ProjectEditorDialog({
   const [formData, setFormData] = useState<Partial<Project>>({
     title: "",
     priority: "P2",
-    status: "Not Started",
+    task_progress: "Not Started",
     description: "",
-    task_progress: "",
     project_area: "",
     tags: [],
     due_date: "",
-    start_date: "",
-    location: "",
     blocking: [],
     blocked_by: [],
   });
@@ -93,14 +90,11 @@ export function ProjectEditorDialog({
       setFormData({
         title: project.title || "",
         priority: project.priority || "P2",
-        status: project.status || "Not Started",
+        task_progress: project.task_progress || "Not Started",
         description: project.description || "",
-        task_progress: project.task_progress || "",
         project_area: project.project_area || "",
         tags: project.tags || [],
         due_date: project.due_date || "",
-        start_date: project.start_date || "",
-        location: project.location || "",
         blocking: project.blocking || [],
         blocked_by: project.blocked_by || [],
       });
@@ -120,14 +114,11 @@ export function ProjectEditorDialog({
       setFormData({
         title: "",
         priority: "P2",
-        status: "Not Started",
+        task_progress: "Not Started",
         description: "",
-        task_progress: "",
         project_area: "",
         tags: [],
         due_date: "",
-        start_date: "",
-        location: "",
         blocking: [],
         blocked_by: [],
       });
@@ -143,13 +134,10 @@ export function ProjectEditorDialog({
 
       // Date fields - convert empty strings to null
       if (cleanedData.due_date === "") cleanedData.due_date = null;
-      if (cleanedData.start_date === "") cleanedData.start_date = null;
-      if (cleanedData.end_date === "") cleanedData.end_date = null;
 
       // Optional text fields - convert empty strings to null (but NOT title, which is required)
       const optionalFields = [
-        'description', 'additional_progress_notes', 'location',
-        'project_area', 'blocking', 'blocked_by'
+        'description', 'project_area', 'blocking', 'blocked_by'
       ];
 
       optionalFields.forEach((field) => {
@@ -438,24 +426,27 @@ export function ProjectEditorDialog({
             </div>
           </div>
 
-          {/* Task Progress / Status */}
+          {/* Task Progress */}
           <div>
             <Label className="text-xs text-gray-500 mb-2 block">Task Progress</Label>
-            <div className="flex gap-2">
-              {STATUSES.map((s) => (
+            <div className="flex flex-wrap gap-2">
+              {TASK_PROGRESS_OPTIONS.map((tp) => (
                 <Button
-                  key={s}
+                  key={tp}
                   type="button"
-                  variant={formData.status === s ? "default" : "outline"}
+                  variant={formData.task_progress === tp ? "default" : "outline"}
                   size="sm"
-                  onClick={() => updateField('status', s)}
-                  className={formData.status === s ? (
-                    s === "Not Started" ? "bg-purple-600 hover:bg-purple-700" :
-                    s === "Completed" || s === "Done" ? "bg-green-600 hover:bg-green-700" :
-                    "bg-blue-600 hover:bg-blue-700"
+                  onClick={() => updateField('task_progress', tp)}
+                  className={formData.task_progress === tp ? (
+                    tp === "Not Started" ? "bg-gray-600 hover:bg-gray-700" :
+                    tp === "In Progress" ? "bg-blue-600 hover:bg-blue-700" :
+                    tp === "Blocked" ? "bg-red-600 hover:bg-red-700" :
+                    tp === "On Hold" ? "bg-yellow-600 hover:bg-yellow-700" :
+                    tp === "Completed" ? "bg-green-600 hover:bg-green-700" :
+                    "bg-gray-500 hover:bg-gray-600"
                   ) : ""}
                 >
-                  {s}
+                  {tp}
                 </Button>
               ))}
             </div>
@@ -473,17 +464,6 @@ export function ProjectEditorDialog({
             />
           </div>
 
-          {/* Additional Progress Notes */}
-          <div>
-            <Label className="text-xs text-gray-500 mb-2 block">Additional Progress Notes</Label>
-            <Textarea
-              value={formData.task_progress}
-              onChange={(e) => updateField('task_progress', e.target.value)}
-              placeholder="Progress notes and updates"
-              rows={3}
-              className="resize-none"
-            />
-          </div>
 
           {/* Attachments */}
           <div>
@@ -674,15 +654,6 @@ export function ProjectEditorDialog({
             />
           </div>
 
-          {/* Location/Projects */}
-          <div>
-            <Label className="text-xs text-gray-500 mb-2 block">Projects</Label>
-            <Input
-              value={formData.location || ""}
-              onChange={(e) => updateField('location', e.target.value)}
-              placeholder="Franklin House"
-            />
-          </div>
         </div>
 
             {/* Footer Actions */}

@@ -2,11 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { DashboardLayout } from "@/components/layout/dashboard-layout";
-import { FastProjectsTable } from "@/components/projects/fast-projects-table";
-import { AGGridProjectsTable } from "@/components/projects/ag-grid-projects-table";
-import { RevoGridProjectsTable } from "@/components/projects/revogrid-projects-table";
 import { TabulatorProjectsTable } from "@/components/projects/tabulator-projects-table";
-import { DndProjectsTable } from "@/components/projects/dnd-projects-table";
 import { KanbanBoard } from "@/components/projects/kanban-board";
 import { GanttChart } from "@/components/projects/gantt-chart";
 import { Button } from "@/components/ui/button";
@@ -48,9 +44,7 @@ export default function ProjectsPage() {
       }
 
       // Update local state
-      setProjects(prev =>
-        prev.map(p => p.id === projectId ? { ...p, [field]: value } : p)
-      );
+      setProjects((prev) => prev.map((p) => (p.id === projectId ? { ...p, [field]: value } : p)));
     } catch (error) {
       console.error("Failed to update project:", error);
       // Revert on error by refetching

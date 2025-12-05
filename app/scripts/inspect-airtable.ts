@@ -1,4 +1,7 @@
-import 'dotenv/config';
+import * as dotenv from 'dotenv';
+import * as path from 'path';
+
+dotenv.config({ path: path.resolve(__dirname, '../.env.local') });
 
 const AIRTABLE_PAT = process.env.AIRTABLE_PAT!;
 const AIRTABLE_BASE_ID = process.env.AIRTABLE_BASE_ID!;

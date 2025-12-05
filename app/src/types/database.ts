@@ -14,19 +14,15 @@ export interface Project {
   id: string;
   title: string;
   description?: string | null;
-  status: string;
+  task_progress: string; // Maps to Airtable "Task Progress" field
   priority?: string | null;
-  location?: string | null;
   project_area?: string | null;
   tags?: string[];
   depends_on?: string[];
   blocked_by?: string[];
   blocking?: string[];
-  start_date?: string | null;
-  end_date?: string | null;
   due_date?: string | null;
   progress: number;
-  task_progress?: string | null;
   created_at: string;
   updated_at: string;
   created_by?: string | null;
@@ -66,7 +62,8 @@ export interface StaticInfo {
   key: string;
   value: string;
   category?: string | null;
-  description?: string | null;
+  description?: string | null; // May contain comma-separated image URLs from Airtable
+  image_urls?: string[];
   created_at: string;
   updated_at: string;
 }

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { DashboardLayout } from "@/components/layout/dashboard-layout";
-import { UsersTable } from "@/components/users/users-table";
+import { TabulatorUsersTable } from "@/components/users/tabulator-users-table";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import { User } from "@/types/database";
@@ -27,6 +27,26 @@ export default function UsersPage() {
     }
   }
 
+  async function handleUpdate(userId: string, field: string, value: any) {
+    try {
+      const response = await fetch(`/api/users/${userId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ [field]: value }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update user');
+      }
+
+      // Refresh users data
+      await fetchUsers();
+    } catch (error) {
+      console.error('Failed to update user:', error);
+      alert('Failed to update user. Please try again.');
+    }
+  }
+
   return (
     <DashboardLayout>
       <div className="p-8">
@@ -46,7 +66,7 @@ export default function UsersPage() {
             <p className="text-gray-500">Loading users...</p>
           </div>
         ) : (
-          <UsersTable users={users} />
+          <TabulatorUsersTable users={users} onUpdate={handleUpdate} />
         )}
       </div>
     </DashboardLayout>

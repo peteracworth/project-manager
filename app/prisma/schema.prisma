@@ -33,15 +33,15 @@ model Project {
   id              String    @id @default(uuid())
   title           String
   description     String?
-  status          String
+  task_progress   String    // Maps to Airtable "Task Progress" field
   priority        String?
-  location        String?
+  project_area    String?   // Maps to Airtable "Project Area" field
   tags            String[]
-  start_date      DateTime?
-  end_date        DateTime?
   due_date        DateTime?
   progress        Int       @default(0)
   depends_on      String[]
+  blocked_by      String[]
+  blocking        String[]
   created_at      DateTime  @default(now())
   updated_at      DateTime  @updatedAt
   created_by      String
