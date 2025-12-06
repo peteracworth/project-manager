@@ -1,7 +1,7 @@
 import { Resend } from "resend";
 
 // Initialize Resend with API key
-const resend = new Resend(process.env.RESEND_API_KEY || "re_UDnJRubv_BszyCnFsNm6jej4eTroAFd2m");
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 // Get base URL for links
 const getBaseUrl = () => {
