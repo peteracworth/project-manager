@@ -3,8 +3,9 @@
 import { useState, useEffect } from "react";
 import { DashboardLayout } from "@/components/layout/dashboard-layout";
 import { TabulatorStaticInfoTable } from "@/components/static-info/tabulator-static-info-table";
+import { TableNavigation } from "@/components/shared";
 import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
+import { Plus, Table as TableIcon } from "lucide-react";
 import { StaticInfo } from "@/types/database";
 
 export default function StaticInfoPage() {
@@ -49,20 +50,30 @@ export default function StaticInfoPage() {
 
   return (
     <DashboardLayout>
-      <div className="p-8">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">Static Information</h1>
-            <p className="text-gray-500 mt-2">General information and references</p>
+      <div className="p-6">
+        {/* Header row */}
+        <div className="flex items-center gap-4 mb-6 flex-wrap">
+          <div className="flex items-center gap-1 bg-gray-100 p-1 rounded-lg">
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded bg-white shadow text-sm font-medium text-gray-900">
+              <TableIcon className="w-4 h-4" />
+              Table
+            </div>
           </div>
-          <Button>
-            <Plus className="w-4 h-4 mr-2" />
-            New Entry
-          </Button>
+          
+          <div className="h-6 w-px bg-gray-300" />
+          
+          <TableNavigation />
+          
+          <div className="ml-auto">
+            <Button>
+              <Plus className="w-4 h-4 mr-2" />
+              New Entry
+            </Button>
+          </div>
         </div>
 
         {loading ? (
-          <div className="flex items-center justify-center h-64 bg-white rounded-lg border border-gray-200">
+          <div className="flex items-center justify-center h-64">
             <p className="text-gray-500">Loading static info...</p>
           </div>
         ) : (

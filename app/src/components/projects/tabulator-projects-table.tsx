@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef, useId } from "react";
 import { ColumnDefinition } from "tabulator-tables";
 import { Project, User, Document } from "@/types/database";
 import { useTabulatorTable } from "@/hooks/use-tabulator-table";
@@ -11,9 +11,14 @@ import {
   SingleSelectDialog,
   DocumentsEditorDialog,
   SelectOption,
+  createExpandColumn,
+  FilterColumn,
+  FilterCondition,
+  ColumnDef,
 } from "@/components/shared";
 import { ProjectEditorDialog } from "@/components/projects/project-editor-dialog";
 import { formatDocumentThumbnails } from "@/utils/image-formatter";
+import { useView } from "@/contexts/view-context";
 
 import "tabulator-tables/dist/css/tabulator.min.css";
 
@@ -31,7 +36,28 @@ const GROUPABLE_COLUMNS: GroupableColumn[] = [
   { value: "task_progress", label: "Task Progress" },
   { value: "priority", label: "Priority" },
   { value: "project_area", label: "Project Area" },
+  { value: "project_name", label: "Project Name" },
 ];
+
+// All columns for visibility dropdown
+const ALL_COLUMNS: ColumnDef[] = [
+  { field: "title", label: "Title" },
+  { field: "task_progress", label: "Task Progress" },
+  { field: "priority", label: "Priority" },
+  { field: "team_roster", label: "Team Roster" },
+  { field: "project_area", label: "Project Area" },
+  { field: "project_name", label: "Project" },
+  { field: "description", label: "Details" },
+  { field: "additional_notes", label: "Progress Notes" },
+  { field: "tags", label: "Tags" },
+  { field: "due_date", label: "Due Date" },
+  { field: "blocked_by", label: "Blocked By" },
+  { field: "blocking", label: "Blocking" },
+  { field: "who_buys", label: "Who Buys" },
+  { field: "documents", label: "Attachments" },
+];
+
+// Filter columns are generated dynamically to include user names
 
 // Editor state types
 type EditorState =
@@ -49,11 +75,77 @@ export function TabulatorProjectsTable({
   onUpdate,
   onTeamRosterUpdate,
 }: TabulatorProjectsTableProps) {
+  const { currentView, setCurrentView } = useView();
   const [allUsers, setAllUsers] = useState<User[]>([]);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [groupByColumn, setGroupByColumn] = useState("none");
   const [activeEditor, setActiveEditor] = useState<EditorType>(null);
   const [expandedProject, setExpandedProject] = useState<Project | null>(null);
+
+  // Local state for view settings - much faster than context
+  const [searchTerm, setSearchTerm] = useState("");
+  const [groupByColumn, setGroupByColumn] = useState("none");
+  const [filters, setFilters] = useState<FilterCondition[]>([]);
+  const [hiddenColumns, setHiddenColumns] = useState<string[]>([]);
+
+  // Track if we're syncing to prevent circular updates
+  const isSyncingToContextRef = useRef(false);
+  const lastAppliedViewRef = useRef<string>("");
+
+  // Sync table name with context on mount
+  useEffect(() => {
+    setCurrentView({ tableName: "projects" });
+  }, [setCurrentView]);
+
+  // When context changes (e.g., user selects a saved view), update local state
+  // Skip if we just synced local state to context
+  useEffect(() => {
+    if (isSyncingToContextRef.current) {
+      isSyncingToContextRef.current = false;
+      return;
+    }
+    
+    if (currentView.tableName !== "projects") return;
+    
+    // Create a key to detect actual view changes
+    const viewKey = JSON.stringify({
+      filters: currentView.filters,
+      groupBy: currentView.groupBy,
+      searchTerm: currentView.searchTerm,
+      hiddenColumns: currentView.hiddenColumns,
+    });
+    
+    if (viewKey !== lastAppliedViewRef.current) {
+      lastAppliedViewRef.current = viewKey;
+      setSearchTerm(currentView.searchTerm || "");
+      setGroupByColumn(currentView.groupBy || "none");
+      setFilters(currentView.filters || []);
+      setHiddenColumns(currentView.hiddenColumns || []);
+    }
+  }, [currentView]);
+
+  // Sync local state TO context (debounced) for saving views
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      // Mark that we're syncing to prevent the reverse sync
+      isSyncingToContextRef.current = true;
+      
+      // Update the ref so we don't re-apply our own changes
+      const viewKey = JSON.stringify({
+        filters,
+        groupBy: groupByColumn === "none" ? null : groupByColumn,
+        searchTerm,
+        hiddenColumns,
+      });
+      lastAppliedViewRef.current = viewKey;
+      
+      setCurrentView({
+        searchTerm,
+        groupBy: groupByColumn === "none" ? null : groupByColumn,
+        filters,
+        hiddenColumns,
+      });
+    }, 500);
+    return () => clearTimeout(timeout);
+  }, [searchTerm, groupByColumn, filters, hiddenColumns, setCurrentView]);
 
   // Fetch users on mount
   useEffect(() => {
@@ -76,6 +168,23 @@ export function TabulatorProjectsTable({
     return Array.from(areas).sort();
   }, [projects]);
 
+  // Generate filter columns dynamically with user names for team roster
+  const filterColumns: FilterColumn[] = useMemo(() => {
+    const userNames = allUsers.map((u) => u.name).filter(Boolean).sort();
+    return [
+      { field: "title", label: "Title" },
+      { field: "task_progress", label: "Task Progress", options: TASK_PROGRESS_OPTIONS },
+      { field: "priority", label: "Priority", options: PRIORITY_OPTIONS },
+      { field: "project_area", label: "Project Area", options: allProjectAreas.length > 0 ? allProjectAreas : undefined },
+      { field: "project_name", label: "Project Name" },
+      { field: "description", label: "Details" },
+      { field: "additional_notes", label: "Progress Notes" },
+      { field: "tags", label: "Tags" },
+      { field: "team_roster", label: "Team Roster", options: userNames.length > 0 ? userNames : undefined },
+      { field: "who_buys", label: "Who Buys", options: userNames.length > 0 ? userNames : undefined },
+    ];
+  }, [allUsers, allProjectAreas]);
+
   // Transform projects for table
   const tableData = useMemo(() => {
     return projects.map((project) => {
@@ -93,6 +202,12 @@ export function TabulatorProjectsTable({
         .map((a) => a.user_id || a.user?.id)
         .filter((id): id is string => id != null);
 
+      // Get "Who Buys" user names
+      const whoBuysValue = ((project as any).who_buys || [])
+        .map((id: string) => allUsers.find((u) => u.id === id)?.name || "")
+        .filter((name: string) => name !== "")
+        .join(", ");
+
       return {
         id: project.id,
         title: project.title || "",
@@ -100,21 +215,25 @@ export function TabulatorProjectsTable({
         priority: project.priority || "",
         team_roster: teamRosterValue,
         team_roster_ids: teamRosterIds,
-      project_area: project.project_area || "",
-      description: project.description || "",
-      tags: (project.tags || []).join(", "),
+        project_area: project.project_area || "",
+        project_name: (project as any).project_name || "",
+        description: project.description || "",
+        additional_notes: (project as any).additional_notes || "",
+        tags: (project.tags || []).join(", "),
         tags_array: project.tags || [],
         due_date: project.due_date?.split("T")[0] || "",
         blocked_by: (project.blocked_by || [])
           .map((id) => projects.find((p) => p.id === id)?.title || id)
           .join(", "),
-      blocked_by_ids: project.blocked_by || [],
+        blocked_by_ids: project.blocked_by || [],
         blocking: (project.blocking || [])
           .map((id) => projects.find((p) => p.id === id)?.title || id)
           .join(", "),
-      blocking_ids: project.blocking || [],
-      documents: project.documents || [],
-      message_count: (project as any).message_count || 0,
+        blocking_ids: project.blocking || [],
+        who_buys: whoBuysValue,
+        who_buys_ids: (project as any).who_buys || [],
+        documents: project.documents || [],
+        message_count: (project as any).message_count || 0,
       };
     });
   }, [projects, allUsers]);
@@ -146,29 +265,14 @@ export function TabulatorProjectsTable({
     };
 
     return [
-        {
-          title: "",
+        createExpandColumn({
           field: "message_count",
-          width: 50,
-          headerSort: false,
-          frozen: true,
-          formatter: (cell: any) => {
-            const count = cell.getValue() || 0;
-            const hasMessages = count > 0;
-          return `<div class="flex items-center justify-center h-full ${hasMessages ? "opacity-100" : "opacity-0 group-hover:opacity-100"}">
-            <button class="bg-${count > 0 ? "blue-500" : "gray-200"} text-${count > 0 ? "white" : "gray-600"} px-2 py-1 rounded text-xs flex items-center gap-1">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-                </svg>
-              ${count}
-              </button>
-            </div>`;
+          countField: "message_count",
+          onClick: (rowData) => {
+            const project = projects.find((p) => p.id === rowData.id);
+            if (project) setExpandedProject(project);
           },
-          cellClick: (_e: any, cell: any) => {
-          const project = projects.find((p) => p.id === cell.getRow().getData().id);
-          if (project) setExpandedProject(project);
-        },
-      },
+        }),
       { title: "Title", field: "title", width: 250, editor: "input", headerFilter: "input", frozen: true },
       {
         title: "Task Progress",
@@ -230,7 +334,15 @@ export function TabulatorProjectsTable({
           headerFilter: "input",
         cellClick: (e, cell) => openEditor("projectArea", cell),
       },
+      { title: "Project", field: "project_name", width: 150, headerFilter: "input",
+        formatter: (cell) => {
+          const value = cell.getValue();
+          if (!value) return "";
+          return `<span style="background: #fef3c7; color: #92400e; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;">${value}</span>`;
+        },
+      },
       { title: "Details", field: "description", width: 300, editor: "textarea", headerFilter: "input" },
+      { title: "Progress Notes", field: "additional_notes", width: 250, editor: "textarea", headerFilter: "input" },
         {
           title: "Tags",
           field: "tags",
@@ -281,38 +393,166 @@ export function TabulatorProjectsTable({
         cellClick: (e, cell) => openEditor("blocking", cell),
         },
         {
+          title: "Who Buys",
+          field: "who_buys",
+          width: 180,
+          headerFilter: "input",
+          formatter: (cell) => {
+            const value = cell.getValue();
+            if (!value) return "";
+            return value
+              .split(", ")
+              .filter((n: string) => n)
+              .map((name: string) => `<span style="background: #dcfce7; color: #166534; padding: 2px 6px; border-radius: 4px; font-size: 12px; margin-right: 4px;">${name}</span>`)
+              .join("");
+          },
+        },
+        {
           title: "Attachments",
           field: "documents",
           width: 200,
           headerFilter: "input",
-        formatter: (cell) => formatDocumentThumbnails(cell.getRow().getData().documents || []),
-        cellClick: (_e: any, cell: any) => openEditor("attachments", cell),
-      },
+          formatter: (cell) => formatDocumentThumbnails(cell.getRow().getData().documents || []),
+          cellClick: (_e: any, cell: any) => openEditor("attachments", cell),
+        },
     ];
   }, [projects]);
 
-  const { tableRef, setFilter, clearFilter, setGroupBy, updateRowData, refreshData } = useTabulatorTable({
+  const [selectedCount, setSelectedCount] = useState(0);
+  const tableId = useId().replace(/:/g, '');
+
+  const { tableRef, setFilter, clearFilter, setGroupBy, updateRowData, refreshData, getSelectedRows, deselectAll, getInstance } = useTabulatorTable({
     data: tableData,
     columns,
     onCellEdited: onUpdate,
   });
 
-  // Search filter
+  // CSS-based column hiding - instant, no Tabulator API calls
+  const hiddenColumnsStyle = useMemo(() => {
+    if (hiddenColumns.length === 0) return '';
+    return hiddenColumns.map(field => 
+      `#table-${tableId} [tabulator-field="${field}"] { display: none !important; }`
+    ).join('\n');
+  }, [hiddenColumns, tableId]);
+
+  // Track row selection changes
   useEffect(() => {
-    if (searchTerm) {
-      setFilter(
-        [
-        { field: "title", type: "like", value: searchTerm },
-          { field: "task_progress", type: "like", value: searchTerm },
-        { field: "priority", type: "like", value: searchTerm },
-        { field: "description", type: "like", value: searchTerm },
-        ],
-        "or"
+    const instance = getInstance();
+    if (!instance) return;
+
+    const updateSelection = () => {
+      const selected = getSelectedRows();
+      setSelectedCount(selected.length);
+    };
+
+    instance.on("rowSelected", updateSelection);
+    instance.on("rowDeselected", updateSelection);
+
+    return () => {
+      try {
+        instance.off("rowSelected", updateSelection);
+        instance.off("rowDeselected", updateSelection);
+      } catch {
+        // Ignore cleanup errors
+      }
+    };
+  }, [getInstance, getSelectedRows]);
+
+  // Handle delete selected projects
+  const handleDeleteSelected = useCallback(async () => {
+    const selected = getSelectedRows();
+    if (selected.length === 0) return;
+
+    const confirmed = window.confirm(
+      `Are you sure you want to delete ${selected.length} project(s)? This action cannot be undone.`
+    );
+
+    if (!confirmed) return;
+
+    try {
+      // Delete each selected project
+      const deletePromises = selected.map((row) =>
+        fetch(`/api/projects/${row.id}`, { method: "DELETE" })
       );
-    } else {
-      clearFilter();
+
+      const results = await Promise.all(deletePromises);
+      const failedCount = results.filter((r) => !r.ok).length;
+
+      if (failedCount > 0) {
+        alert(`${failedCount} project(s) failed to delete.`);
+      }
+
+      // Refresh the data
+      deselectAll();
+      setSelectedCount(0);
+      
+      // Trigger parent refresh if available
+      if (onTeamRosterUpdate) {
+        await onTeamRosterUpdate();
+      }
+    } catch (error) {
+      console.error("Failed to delete projects:", error);
+      alert("Failed to delete projects. Please try again.");
     }
-  }, [searchTerm, setFilter, clearFilter]);
+  }, [getSelectedRows, deselectAll, onTeamRosterUpdate]);
+
+  // Apply filters (search + custom filters) - optimized to run only when needed
+  useEffect(() => {
+    const instance = getInstance();
+    if (!instance) return;
+
+    // Build a single custom filter function that handles everything
+    if (!searchTerm && filters.length === 0) {
+      instance.clearFilter();
+      return;
+    }
+
+    // Use a single filter function for better performance
+    instance.setFilter((rowData: any) => {
+      // Check search term (OR across fields)
+      if (searchTerm) {
+        const searchLower = searchTerm.toLowerCase();
+        const matchesSearch = 
+          (rowData.title || "").toLowerCase().includes(searchLower) ||
+          (rowData.task_progress || "").toLowerCase().includes(searchLower) ||
+          (rowData.priority || "").toLowerCase().includes(searchLower) ||
+          (rowData.description || "").toLowerCase().includes(searchLower) ||
+          (rowData.team_roster || "").toLowerCase().includes(searchLower) ||
+          (rowData.tags || "").toLowerCase().includes(searchLower);
+        
+        if (!matchesSearch) return false;
+      }
+
+      // Check custom filters (AND between them)
+      for (const f of filters) {
+        const fieldValue = String(rowData[f.column] || "").toLowerCase();
+        const filterValue = f.value.toLowerCase();
+
+        switch (f.operator) {
+          case "like":
+            if (!fieldValue.includes(filterValue)) return false;
+            break;
+          case "notlike":
+            if (fieldValue.includes(filterValue)) return false;
+            break;
+          case "=":
+            if (fieldValue !== filterValue) return false;
+            break;
+          case "!=":
+            if (fieldValue === filterValue) return false;
+            break;
+          case "empty":
+            if (fieldValue !== "") return false;
+            break;
+          case "notempty":
+            if (fieldValue === "") return false;
+            break;
+        }
+      }
+
+      return true;
+    });
+  }, [searchTerm, filters, getInstance]);
 
   // Grouping
   useEffect(() => {
@@ -512,7 +752,10 @@ export function TabulatorProjectsTable({
   }, [activeEditor, updateRowData]);
 
   return (
-        <div className="space-y-4">
+    <div className="space-y-4">
+      {/* CSS-based column hiding - instant with no API calls */}
+      {hiddenColumnsStyle && <style dangerouslySetInnerHTML={{ __html: hiddenColumnsStyle }} />}
+      
       <TableToolbar
         searchTerm={searchTerm}
         onSearchChange={setSearchTerm}
@@ -520,9 +763,18 @@ export function TabulatorProjectsTable({
         groupByColumn={groupByColumn}
         onGroupByChange={setGroupByColumn}
         groupableColumns={GROUPABLE_COLUMNS}
+        selectedCount={selectedCount}
+        onDeleteSelected={handleDeleteSelected}
+        deleteLabel="Delete"
+        allColumns={ALL_COLUMNS}
+        hiddenColumns={hiddenColumns}
+        onHiddenColumnsChange={setHiddenColumns}
+        filterColumns={filterColumns}
+        filters={filters}
+        onFiltersChange={setFilters}
       />
 
-      <div ref={tableRef} className="border rounded-lg overflow-hidden" />
+      <div id={`table-${tableId}`} ref={tableRef} className="border rounded-lg" style={{ minWidth: 'max-content' }} />
 
       <div className="text-sm text-gray-500">{projects.length} project(s) total</div>
 

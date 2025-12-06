@@ -17,6 +17,8 @@ async function setupStorageBuckets() {
     { name: 'project-documents', public: true },
     { name: 'item-images', public: true },
     { name: 'static-info-files', public: true },
+    { name: 'contact-attachments', public: true },
+    { name: 'item-spec-sheets', public: true },
   ];
 
   for (const bucket of buckets) {

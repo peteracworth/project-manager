@@ -1,15 +1,15 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { X, Plus, Upload, Trash2, Eye, Send, MessageSquare } from "lucide-react";
+import { X, Upload, Trash2, Eye } from "lucide-react";
 import { Project } from "@/types/database";
+import { ChatPanel } from "@/components/shared";
 
 interface ProjectEditorDialogProps {
   isOpen: boolean;
@@ -54,12 +54,77 @@ export function ProjectEditorDialog({
   const [teamRoster, setTeamRoster] = useState<string[]>([]);
   const [documents, setDocuments] = useState<any[]>([]);
   const [uploadingFiles, setUploadingFiles] = useState(false);
-  const [showHiddenFields, setShowHiddenFields] = useState(false);
   const [showTeamRosterDialog, setShowTeamRosterDialog] = useState(false);
-  const [messages, setMessages] = useState<any[]>([]);
-  const [newMessage, setNewMessage] = useState("");
-  const [sendingMessage, setSendingMessage] = useState(false);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Resizable dialog state
+  const [dimensions, setDimensions] = useState({ width: 1100, height: 700 });
+  const [isResizing, setIsResizing] = useState(false);
+  const resizeRef = useRef<{ startX: number; startY: number; startWidth: number; startHeight: number } | null>(null);
+
+  // Load saved dimensions from localStorage
+  useEffect(() => {
+    const saved = localStorage.getItem("projectEditorDialogDimensions");
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        setDimensions(parsed);
+      } catch (e) {
+        // ignore
+      }
+    }
+  }, []);
+
+  // Save dimensions when they change
+  const saveDimensions = useCallback((dims: { width: number; height: number }) => {
+    localStorage.setItem("projectEditorDialogDimensions", JSON.stringify(dims));
+  }, []);
+
+  // Handle resize start
+  const handleResizeStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsResizing(true);
+    resizeRef.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      startWidth: dimensions.width,
+      startHeight: dimensions.height,
+    };
+  }, [dimensions]);
+
+  // Handle resize move
+  useEffect(() => {
+    if (!isResizing) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!resizeRef.current) return;
+      
+      const deltaX = e.clientX - resizeRef.current.startX;
+      const deltaY = e.clientY - resizeRef.current.startY;
+      
+      const newWidth = Math.max(600, Math.min(window.innerWidth - 40, resizeRef.current.startWidth + deltaX));
+      const newHeight = Math.max(500, Math.min(window.innerHeight - 40, resizeRef.current.startHeight + deltaY));
+      
+      setDimensions({ width: newWidth, height: newHeight });
+    };
+
+    const handleMouseUp = () => {
+      setIsResizing(false);
+      saveDimensions(dimensions);
+      resizeRef.current = null;
+    };
+
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
+
+    return () => {
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [isResizing, dimensions, saveDimensions]);
+
+  // Calculate chat width based on dialog width
+  const chatWidth = Math.max(280, Math.min(400, dimensions.width * 0.3));
 
   // Helper function to update a field in real-time
   const updateField = async (field: string, value: any) => {
@@ -298,92 +363,18 @@ export function ProjectEditorDialog({
     return [".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg"].some((e) => ext.endsWith(e));
   };
 
-  // Fetch messages when project changes
-  useEffect(() => {
-    if (project?.id) {
-      fetchMessages();
-    } else {
-      setMessages([]);
-    }
-  }, [project?.id]);
-
-  // Scroll to bottom when messages change
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
-
-  const fetchMessages = async () => {
-    if (!project?.id) return;
-
-    try {
-      const response = await fetch(`/api/projects/${project.id}/messages`);
-      if (response.ok) {
-        const data = await response.json();
-        setMessages(data.messages || []);
-      }
-    } catch (error) {
-      console.error('Failed to fetch messages:', error);
-    }
-  };
-
-  const handleSendMessage = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!project?.id || !newMessage.trim() || sendingMessage) return;
-
-    setSendingMessage(true);
-    try {
-      const response = await fetch(`/api/projects/${project.id}/messages`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: newMessage.trim() }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        console.error('Failed to send message:', errorData);
-
-        let errorMessage = 'Failed to send message.';
-        if (errorData.error) {
-          errorMessage = errorData.error;
-        }
-        if (errorData.debug) {
-          console.log('Debug info:', errorData.debug);
-          if (errorData.debug.authEmail) {
-            errorMessage += `\n\nAuthenticated as: ${errorData.debug.authEmail}`;
-          }
-        }
-
-        alert(errorMessage);
-        return;
-      }
-
-      const data = await response.json();
-      setMessages([...messages, data.message]);
-      setNewMessage("");
-    } catch (error) {
-      console.error('Failed to send message:', error);
-      alert('Failed to send message. Please try again.');
-    } finally {
-      setSendingMessage(false);
-    }
-  };
-
-  const formatMessageTime = (timestamp: string) => {
-    const date = new Date(timestamp);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-
-    if (diffMins < 1) return 'just now';
-    if (diffMins < 60) return `${diffMins}m ago`;
-    if (diffMins < 1440) return `${Math.floor(diffMins / 60)}h ago`;
-    return date.toLocaleDateString();
-  };
-
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-7xl max-h-[90vh] p-0">
-        <div className="flex h-[90vh]">
+      <DialogContent 
+        className="p-0 overflow-hidden"
+        style={{ 
+          width: dimensions.width,
+          height: dimensions.height,
+          maxWidth: "95vw",
+          maxHeight: "95vh",
+        }}
+      >
+        <div className="flex h-full relative">
           {/* Left side - Project Form */}
           <div className="flex-1 overflow-y-auto p-6">
             <DialogHeader>
@@ -679,77 +670,35 @@ export function ProjectEditorDialog({
 
           {/* Right side - Chat Panel */}
           {project?.id && (
-            <div className="w-96 border-l flex flex-col bg-gray-50">
-              {/* Chat Header */}
-              <div className="p-4 border-b bg-white">
-                <div className="flex items-center gap-2">
-                  <MessageSquare className="w-5 h-5 text-gray-600" />
-                  <h3 className="font-semibold text-gray-900">Comments</h3>
-                  <Badge variant="outline" className="ml-auto">
-                    {messages.length}
-                  </Badge>
-                </div>
-              </div>
-
-              {/* Messages List */}
-              <ScrollArea className="flex-1 p-4">
-                <div className="space-y-4">
-                  {messages.length === 0 ? (
-                    <div className="text-center text-gray-500 text-sm py-8">
-                      No comments yet. Start the conversation!
-                    </div>
-                  ) : (
-                    messages.map((message) => (
-                      <div key={message.id} className="space-y-1">
-                        <div className="flex items-baseline gap-2">
-                          <span className="font-semibold text-sm text-gray-900">
-                            {message.user?.name || 'Unknown User'}
-                          </span>
-                          <span className="text-xs text-gray-500">
-                            {formatMessageTime(message.created_at)}
-                          </span>
-                        </div>
-                        <p className="text-sm text-gray-700 whitespace-pre-wrap">
-                          {message.content}
-                        </p>
-                      </div>
-                    ))
-                  )}
-                  <div ref={messagesEndRef} />
-                </div>
-              </ScrollArea>
-
-              {/* Message Input */}
-              <div className="p-4 border-t bg-white">
-                <form onSubmit={handleSendMessage} className="flex gap-2">
-                  <Textarea
-                    value={newMessage}
-                    onChange={(e) => setNewMessage(e.target.value)}
-                    placeholder="Leave a comment..."
-                    rows={2}
-                    className="resize-none text-sm"
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && !e.shiftKey) {
-                        e.preventDefault();
-                        handleSendMessage(e);
-                      }
-                    }}
-                  />
-                  <Button
-                    type="submit"
-                    size="sm"
-                    disabled={!newMessage.trim() || sendingMessage}
-                    className="self-end"
-                  >
-                    <Send className="w-4 h-4" />
-                  </Button>
-                </form>
-                <p className="text-xs text-gray-500 mt-2">
-                  Press Enter to send, Shift+Enter for new line
-                </p>
-              </div>
-            </div>
+            <ChatPanel
+              entityType="project"
+              entityId={project.id}
+              className="border-l"
+              style={{ width: chatWidth }}
+            />
           )}
+
+          {/* Resize Handle - Bottom Right Corner */}
+          <div
+            onMouseDown={handleResizeStart}
+            className="absolute bottom-0 right-0 w-4 h-4 cursor-se-resize z-50"
+            style={{
+              background: "linear-gradient(135deg, transparent 50%, #cbd5e1 50%)",
+            }}
+            title="Drag to resize"
+          />
+          
+          {/* Resize Handle - Right Edge */}
+          <div
+            onMouseDown={handleResizeStart}
+            className="absolute top-0 right-0 w-2 h-full cursor-e-resize z-40 hover:bg-blue-200/50"
+          />
+          
+          {/* Resize Handle - Bottom Edge */}
+          <div
+            onMouseDown={handleResizeStart}
+            className="absolute bottom-0 left-0 w-full h-2 cursor-s-resize z-40 hover:bg-blue-200/50"
+          />
         </div>
       </DialogContent>
 

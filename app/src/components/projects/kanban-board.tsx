@@ -35,7 +35,7 @@ export function KanbanBoard({ projects, onProjectMove }: KanbanBoardProps) {
     });
 
     projects.forEach(project => {
-      const status = project.status || "Not Started";
+      const status = project.task_progress || "Not Started";
       const column = columnMap.get(status);
       if (column) {
         column.push(project);

@@ -12,65 +12,101 @@ datasource db {
 
 // Users table (from Airtable "Contacts")
 model User {
-  id            String   @id @default(uuid())
-  email         String   @unique
-  name          String
-  avatar_url    String?
-  role          String   @default("member")
-  created_at    DateTime @default(now())
-  updated_at    DateTime @updatedAt
+  id              String   @id @default(uuid())
+  email           String   @unique
+  name            String
+  avatar_url      String?
+  role            String   @default("member")
+  contact_type    String?  // "Team", "Vendor", "Contractor", etc.
+  service_type    String?
+  phone           String?
+  // New fields from Airtable
+  notes           String?
+  attachment_urls String[]
+  website         String?
+  license_number  String?
+  contact_name    String?  // Person's name at company
+  product_types   String[] // Multi-select: furniture, etc.
+  item_types      String[] // Multi-select: Kitchen Appliance, Hardware, etc.
+  location        String?
+  
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
 
   // Relations
   assigned_projects  ProjectAssignment[]
   uploaded_documents Document[]
-  messages          Message[]
+  messages           Message[]
+  items              Item[]
 
   @@map("users")
 }
 
 // Projects table (from Airtable "Task List")
 model Project {
-  id              String    @id @default(uuid())
-  title           String
-  description     String?
-  task_progress   String    // Maps to Airtable "Task Progress" field
-  priority        String?
-  project_area    String?   // Maps to Airtable "Project Area" field
-  tags            String[]
-  due_date        DateTime?
-  progress        Int       @default(0)
-  depends_on      String[]
-  blocked_by      String[]
-  blocking        String[]
-  created_at      DateTime  @default(now())
-  updated_at      DateTime  @updatedAt
-  created_by      String
+  id                String    @id @default(uuid())
+  title             String
+  description       String?
+  task_progress     String    // Maps to Airtable "Task Progress" field
+  priority          String?
+  project_area      String?   // Maps to Airtable "Project Area" field
+  tags              String[]
+  due_date          DateTime?
+  progress          Int       @default(0)
+  depends_on        String[]
+  blocked_by        String[]
+  blocking          String[]
+  // New fields from Airtable
+  additional_notes  String?   // "Additional Progress Notes"
+  project_name      String?   // "Projects" field (e.g., "Franklin House")
+  who_buys          String[]  // Array of user IDs responsible for purchasing
+  
+  created_at        DateTime  @default(now())
+  updated_at        DateTime  @updatedAt
+  created_by        String
 
   // Relations
-  assignments     ProjectAssignment[]
-  documents       Document[]
-  messages        Message[]
-  items           Item[]
+  assignments       ProjectAssignment[]
+  documents         Document[]
+  messages          Message[]
+  items             Item[]
 
   @@map("projects")
 }
 
 // Items table (from Airtable "Items and Purchases")
 model Item {
-  id              String    @id @default(uuid())
-  name            String
-  description     String?
-  category        String?
-  cost            Decimal?  @db.Decimal(10, 2)
-  quantity        Int?
-  purchased_date  DateTime?
-  vendor          String?
-  project_id      String?
-  created_at      DateTime  @default(now())
-  updated_at      DateTime  @updatedAt
+  id                  String    @id @default(uuid())
+  item_name           String
+  details             String?
+  category            String?
+  room_space          String?
+  sheen               String?
+  estimate            Decimal?  @db.Decimal(10, 2)
+  notes               String?
+  link                String?
+  is_suggestion       Boolean   @default(false)
+  is_rejected         Boolean   @default(false)
+  vendor_id           String?
+  image_urls          String[]
+  // New fields from Airtable
+  size_dimensions     String?   // Product dimensions
+  inside_panel_width  String?
+  product_id          String?   // Vendor product ID
+  quantity            Int?
+  purchase_price      Decimal?  @db.Decimal(10, 2)
+  purchase_date       DateTime?
+  actual_dimensions   String?   // Measured dimensions
+  spec_sheet_urls     String[]  // Spec sheet attachments
+  status              String?   // "Received", "Installed", "Ordered", etc.
+  project_id          String?   // Link to project/task
+  
+  created_at          DateTime  @default(now())
+  updated_at          DateTime  @updatedAt
 
   // Relations
-  project         Project?  @relation(fields: [project_id], references: [id])
+  vendor              User?     @relation(fields: [vendor_id], references: [id])
+  project             Project?  @relation(fields: [project_id], references: [id])
 
   @@map("items")
 }
@@ -82,6 +118,10 @@ model StaticInfo {
   value         String
   category      String?
   description   String?
+  image_urls    String[]
+  // New fields from Airtable
+  website_link  String?
+  
   created_at    DateTime @default(now())
   updated_at    DateTime @updatedAt
 
@@ -113,11 +153,11 @@ model Document {
   storage_path  String
   storage_url   String
   thumbnail_url String?
-  uploaded_by   String
+  uploaded_by   String?
   uploaded_at   DateTime @default(now())
 
   project       Project  @relation(fields: [project_id], references: [id], onDelete: Cascade)
-  uploader      User     @relation(fields: [uploaded_by], references: [id])
+  uploader      User?    @relation(fields: [uploaded_by], references: [id])
 
   @@map("documents")
 }

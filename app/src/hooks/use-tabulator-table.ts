@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useCallback } from "react";
+import { useEffect, useLayoutEffect, useRef, useCallback, useMemo } from "react";
 import { TabulatorFull as Tabulator, ColumnDefinition } from "tabulator-tables";
 
 export interface UseTabulatorTableOptions<T> {
@@ -22,13 +22,15 @@ export interface UseTabulatorTableReturn {
   setGroupBy: (field: string | false) => void;
   updateRowData: (rowId: string, data: Record<string, any>) => void;
   refreshData: (data: any[]) => void;
+  getSelectedRows: () => any[];
+  deselectAll: () => void;
 }
 
 export function useTabulatorTable<T extends { id: string }>({
   data,
   columns,
   onCellEdited,
-  height = "600px",
+  height,
   rowSelection = true,
   movableRows = true,
   movableColumns = true,
@@ -59,8 +61,8 @@ export function useTabulatorTable<T extends { id: string }>({
 
     const table = new Tabulator(tableRef.current, {
       data: data,
-      layout: "fitDataStretch",
-      height,
+      layout: "fitData", // Changed from fitDataStretch to allow horizontal scrolling
+      ...(height && { height }),
       movableRows,
       movableColumns,
       ...(rowHeader && { rowHeader }),
@@ -163,6 +165,27 @@ export function useTabulatorTable<T extends { id: string }>({
     }
   }, []);
 
+  const getSelectedRows = useCallback(() => {
+    if (tabulatorInstance.current) {
+      try {
+        return tabulatorInstance.current.getSelectedData();
+      } catch (error) {
+        return [];
+      }
+    }
+    return [];
+  }, []);
+
+  const deselectAll = useCallback(() => {
+    if (tabulatorInstance.current) {
+      try {
+        tabulatorInstance.current.deselectRow();
+      } catch (error) {
+        // Ignore deselect errors
+      }
+    }
+  }, []);
+
   return {
     tableRef,
     getInstance,
@@ -171,6 +194,8 @@ export function useTabulatorTable<T extends { id: string }>({
     setGroupBy,
     updateRowData,
     refreshData,
+    getSelectedRows,
+    deselectAll,
   };
 }
 
