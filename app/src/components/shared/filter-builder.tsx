@@ -167,11 +167,14 @@ export function FilterBuilder({ columns, filters, onFiltersChange }: FilterBuild
                   <SelectValue placeholder="Select value" />
                 </SelectTrigger>
                 <SelectContent>
-                  {selectedColumnOptions.map((opt) => (
-                    <SelectItem key={opt} value={opt}>
-                      {opt}
-                    </SelectItem>
-                  ))}
+                  {selectedColumnOptions
+                    .filter((opt) => opt && opt.trim() !== "")
+                    .filter((opt, idx, arr) => arr.indexOf(opt) === idx)
+                    .map((opt) => (
+                      <SelectItem key={opt} value={opt}>
+                        {opt}
+                      </SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
             ) : (
@@ -315,38 +318,41 @@ export function InlineFilterBuilder({ columns, filters, onFiltersChange }: Filte
                   <SelectTrigger className="w-full">
                     <SelectValue placeholder="Select value" />
                   </SelectTrigger>
-                  <SelectContent>
-                    {selectedColumnOptions.map((opt) => (
+                <SelectContent>
+                  {selectedColumnOptions
+                    .filter((opt) => opt && opt.trim() !== "")
+                    .filter((opt, idx, arr) => arr.indexOf(opt) === idx)
+                    .map((opt) => (
                       <SelectItem key={opt} value={opt}>
                         {opt}
                       </SelectItem>
                     ))}
-                  </SelectContent>
-                </Select>
-              ) : (
-                <Input
-                  value={newFilter.value || ""}
-                  onChange={(e) => setNewFilter({ ...newFilter, value: e.target.value })}
-                  placeholder="Enter a value"
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") handleAddFilter();
-                  }}
-                />
-              )
-            )}
-          </div>
-
-          <div className="flex gap-2 justify-end">
-            <Button size="sm" variant="ghost" onClick={() => setIsOpen(false)}>
-              Cancel
-            </Button>
-            <Button size="sm" onClick={handleAddFilter}>
-              Apply
-            </Button>
-          </div>
+                </SelectContent>
+              </Select>
+            ) : (
+              <Input
+                value={newFilter.value || ""}
+                onChange={(e) => setNewFilter({ ...newFilter, value: e.target.value })}
+                placeholder="Enter a value"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleAddFilter();
+                }}
+              />
+            )
+          )}
         </div>
-      </PopoverContent>
-    </Popover>
+
+        <div className="flex gap-2 justify-end">
+          <Button size="sm" variant="ghost" onClick={() => setIsOpen(false)}>
+            Cancel
+          </Button>
+          <Button size="sm" onClick={handleAddFilter}>
+            Apply
+          </Button>
+        </div>
+      </div>
+    </PopoverContent>
+  </Popover>
   );
 }
 

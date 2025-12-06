@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useCallback, useMemo } from "react";
+import { useEffect, useLayoutEffect, useRef, useCallback } from "react";
 import { TabulatorFull as Tabulator, ColumnDefinition } from "tabulator-tables";
 
 export interface UseTabulatorTableOptions<T> {
@@ -38,15 +38,12 @@ export function useTabulatorTable<T extends { id: string }>({
   const tableRef = useRef<HTMLDivElement | null>(null);
   const tabulatorInstance = useRef<Tabulator | null>(null);
   const isInitializedRef = useRef(false);
-  const dataRef = useRef(data);
 
-  // Keep data ref updated
-  dataRef.current = data;
-
-  // Initialize table only once
+  // Initialize table when we have data and a container
   useLayoutEffect(() => {
-    if (isInitializedRef.current) return;
-    if (!tableRef.current || !data.length) return;
+    if (!tableRef.current) return;
+    if (data.length === 0) return;
+    if (isInitializedRef.current && tabulatorInstance.current) return;
 
     const rowHeader = rowSelection
       ? {
@@ -61,7 +58,7 @@ export function useTabulatorTable<T extends { id: string }>({
 
     const table = new Tabulator(tableRef.current, {
       data: data,
-      layout: "fitData", // Changed from fitDataStretch to allow horizontal scrolling
+      layout: "fitData",
       ...(height && { height }),
       movableRows,
       movableColumns,
@@ -80,19 +77,19 @@ export function useTabulatorTable<T extends { id: string }>({
       }
     });
 
-    tabulatorInstance.current = table;
-
     table.on("tableBuilt", () => {
       isInitializedRef.current = true;
     });
+
+    tabulatorInstance.current = table;
 
     return () => {
       isInitializedRef.current = false;
       if (tabulatorInstance.current) {
         try {
           tabulatorInstance.current.destroy();
-        } catch (error) {
-          // Ignore destroy errors during cleanup
+        } catch {
+          // Ignore destroy errors
         }
         tabulatorInstance.current = null;
       }
@@ -100,23 +97,30 @@ export function useTabulatorTable<T extends { id: string }>({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data.length > 0]);
 
+  // Track if this is the initial data load
+  const initialDataRef = useRef(data);
+  
   // Update table data when data changes (without recreating the table)
   useEffect(() => {
-    if (!isInitializedRef.current) return;
-
+    // Skip if data hasn't actually changed from initial load
+    if (data === initialDataRef.current) return;
+    
     const instance = tabulatorInstance.current;
-    if (!instance) return;
+    // Only update if table is fully built
+    if (!instance || !isInitializedRef.current) return;
 
-    try {
-      if (!tableRef.current) return;
-      if (!instance.element || !document.body.contains(instance.element)) return;
-
-      if (typeof instance.setData === "function") {
-        instance.setData(data);
+    // Delay the update slightly to ensure table is ready
+    const timeoutId = setTimeout(() => {
+      try {
+        if (tabulatorInstance.current && isInitializedRef.current) {
+          tabulatorInstance.current.replaceData(data);
+        }
+      } catch {
+        // Ignore errors during data update
       }
-    } catch (error) {
-      // Ignore errors during data update
-    }
+    }, 50);
+    
+    return () => clearTimeout(timeoutId);
   }, [data]);
 
   const getInstance = useCallback(() => tabulatorInstance.current, []);

@@ -14,7 +14,7 @@ interface TabulatorUsersTableProps {
   onUpdate?: (userId: string, field: string, value: any) => Promise<void>;
 }
 
-const ROLE_OPTIONS = ["admin", "member", "vendor"];
+const ROLE_OPTIONS = ["Builder", "Designer", "Interiors", "Owner", "Permits", "member", "project manager", "vendor"];
 const CONTACT_TYPE_OPTIONS = ["Team", "Vendor", "Contractor", "Subcontractor", "Other"];
 
 const GROUPABLE_COLUMNS: GroupableColumn[] = [

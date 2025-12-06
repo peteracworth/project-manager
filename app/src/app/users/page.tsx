@@ -5,7 +5,7 @@ import { DashboardLayout } from "@/components/layout/dashboard-layout";
 import { TabulatorUsersTable } from "@/components/users/tabulator-users-table";
 import { TableNavigation } from "@/components/shared";
 import { Button } from "@/components/ui/button";
-import { Plus, Table as TableIcon } from "lucide-react";
+import { Plus } from "lucide-react";
 import { User } from "@/types/database";
 
 export default function UsersPage() {
@@ -53,15 +53,6 @@ export default function UsersPage() {
       <div className="p-6">
         {/* Header row */}
         <div className="flex items-center gap-4 mb-6 flex-wrap">
-          <div className="flex items-center gap-1 bg-gray-100 p-1 rounded-lg">
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded bg-white shadow text-sm font-medium text-gray-900">
-              <TableIcon className="w-4 h-4" />
-              Table
-            </div>
-          </div>
-          
-          <div className="h-6 w-px bg-gray-300" />
-          
           <TableNavigation />
           
           <div className="ml-auto">

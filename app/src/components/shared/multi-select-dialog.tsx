@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   Dialog,
   DialogContent,
@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Search } from "lucide-react";
 
 export interface SelectOption {
   id: string;
@@ -42,11 +43,13 @@ export function MultiSelectDialog({
 }: MultiSelectDialogProps) {
   const [selected, setSelected] = useState<string[]>(selectedIds);
   const [newItemInput, setNewItemInput] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     setSelected(selectedIds);
-  }, [selectedIds]);
+    setSearchTerm("");
+  }, [selectedIds, open]);
 
   const toggleItem = (id: string) => {
     setSelected((prev) =>
@@ -82,7 +85,38 @@ export function MultiSelectDialog({
     }
   };
 
-  const filteredOptions = options.filter((opt) => !excludeIds.includes(opt.id));
+  // Filter options based on search term and sort matches to top
+  const filteredOptions = useMemo(() => {
+    const available = options.filter((opt) => !excludeIds.includes(opt.id));
+    
+    if (!searchTerm.trim()) {
+      return available;
+    }
+    
+    const search = searchTerm.toLowerCase();
+    
+    // Filter and sort: exact matches first, then starts with, then contains
+    return available
+      .filter((opt) => 
+        opt.label.toLowerCase().includes(search) ||
+        opt.sublabel?.toLowerCase().includes(search)
+      )
+      .sort((a, b) => {
+        const aLabel = a.label.toLowerCase();
+        const bLabel = b.label.toLowerCase();
+        
+        // Exact match first
+        if (aLabel === search) return -1;
+        if (bLabel === search) return 1;
+        
+        // Starts with next
+        if (aLabel.startsWith(search) && !bLabel.startsWith(search)) return -1;
+        if (bLabel.startsWith(search) && !aLabel.startsWith(search)) return 1;
+        
+        // Then alphabetical
+        return aLabel.localeCompare(bLabel);
+      });
+  }, [options, excludeIds, searchTerm]);
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
@@ -91,9 +125,21 @@ export function MultiSelectDialog({
           <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
 
+        {/* Search Input */}
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Input
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Search..."
+            className="pl-10"
+            autoFocus
+          />
+        </div>
+
         {/* Selected Items */}
         {selected.length > 0 && (
-          <div className="mb-4">
+          <div className="mb-2">
             <div className="text-sm font-medium mb-2">Selected:</div>
             <div className="flex flex-wrap gap-2">
               {selected.map((id) => {
@@ -120,7 +166,7 @@ export function MultiSelectDialog({
 
         {/* Add New Item */}
         {allowCreate && (
-          <div className="mb-4">
+          <div className="mb-2">
             <div className="text-sm font-medium mb-2">Add New:</div>
             <div className="flex gap-2">
               <Input
@@ -138,28 +184,34 @@ export function MultiSelectDialog({
         )}
 
         {/* Options List */}
-        <div className="max-h-64 overflow-y-auto">
-          <div className="space-y-1">
-            {filteredOptions.map((option) => (
-              <div
-                key={option.id}
-                className="flex items-center gap-2 px-3 py-2 hover:bg-gray-100 cursor-pointer rounded"
-                onClick={() => toggleItem(option.id)}
-              >
-                <input
-                  type="checkbox"
-                  checked={selected.includes(option.id)}
-                  onChange={() => {}}
-                  className="h-4 w-4"
-                />
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium truncate">{option.label}</div>
-                  {option.sublabel && (
-                    <div className="text-xs text-gray-500 truncate">{option.sublabel}</div>
-                  )}
-                </div>
+        <div className="max-h-64 overflow-y-auto border rounded-lg">
+          <div className="space-y-0">
+            {filteredOptions.length === 0 ? (
+              <div className="p-4 text-center text-gray-500 text-sm">
+                {searchTerm ? "No matches found" : "No options available"}
               </div>
-            ))}
+            ) : (
+              filteredOptions.map((option) => (
+                <div
+                  key={option.id}
+                  className="flex items-center gap-2 px-3 py-2 hover:bg-gray-100 cursor-pointer border-b last:border-b-0"
+                  onClick={() => toggleItem(option.id)}
+                >
+                  <input
+                    type="checkbox"
+                    checked={selected.includes(option.id)}
+                    onChange={() => {}}
+                    className="h-4 w-4"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium truncate">{option.label}</div>
+                    {option.sublabel && (
+                      <div className="text-xs text-gray-500 truncate">{option.sublabel}</div>
+                    )}
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </div>
 
@@ -175,5 +227,3 @@ export function MultiSelectDialog({
     </Dialog>
   );
 }
-
-

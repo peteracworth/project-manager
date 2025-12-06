@@ -25,7 +25,7 @@ interface ProjectEditorDialogProps {
 }
 
 const PRIORITIES = ["P1", "P2", "P3", "P4"];
-const TASK_PROGRESS_OPTIONS = ["Not Started", "In Progress", "Blocked", "On Hold", "Completed", "Cancelled"];
+const TASK_PROGRESS_OPTIONS = ["Not Started", "In Progress", "Done", "On Hold", "Abandoned"];
 
 export function ProjectEditorDialog({
   isOpen,

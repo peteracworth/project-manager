@@ -22,11 +22,22 @@ interface TabulatorItemsTableProps {
   onUpdate?: (itemId: string, field: string, value: any) => Promise<void>;
 }
 
-const CATEGORY_OPTIONS = ["Furniture", "Fixtures", "Materials", "Equipment", "Decor", "Other"];
-const SHEEN_OPTIONS = ["Matte", "Eggshell", "Satin", "Semi-Gloss", "Gloss"];
+const CATEGORY_OPTIONS = [
+  "Appliance", "Appliances", "Decor", "Electronics", "Fixtures", "Flooring", 
+  "Furniture", "Lighting", "Other", "Paint", "Paint/Wall Treatment", "Plumbing Fixtures",
+  "Pulls", "Textile", "Tiles", "Wallcovering", "Window Treatment"
+];
+const SHEEN_OPTIONS = [
+  "Matte", "Eggshell", "Satin", "Semi-Gloss", "Gloss", 
+  "Aura Matte", "Regal Satin", "Regal Eggshell", "Regal Matte", 
+  "Regal Semi Gloss", "Satin Aura", "Modern Emulsion", "Ultra Flat"
+];
 
-const CATEGORY_OPTIONS_LIST = ["Furniture", "Fixtures", "Materials", "Equipment", "Decor", "Lighting", "Paint", "Appliances", "Textile", "Art", "Other"];
-const STATUS_OPTIONS = ["Not started", "Ordered", "Received", "Installed/Completed", "Inspected", "Returned", "Pending Owner Decision", "On hold/Deprioritized"];
+const CATEGORY_OPTIONS_LIST = CATEGORY_OPTIONS;
+const STATUS_OPTIONS = [
+  "Not started", "Ordered", "Received", "Installed/Completed", "Inspected", 
+  "Returned", "Pending Owner Decision", "On hold/Deprioritized"
+];
 
 const GROUPABLE_COLUMNS: GroupableColumn[] = [
   { value: "none", label: "No Grouping" },

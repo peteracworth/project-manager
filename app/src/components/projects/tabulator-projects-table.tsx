@@ -29,7 +29,7 @@ interface TabulatorProjectsTableProps {
 }
 
 const PRIORITY_OPTIONS = ["P1", "P2", "P3", "P4"];
-const TASK_PROGRESS_OPTIONS = ["Not Started", "In Progress", "Blocked", "On Hold", "Completed", "Cancelled"];
+const TASK_PROGRESS_OPTIONS = ["Not Started", "In Progress", "Done", "On Hold", "Abandoned"];
 
 const GROUPABLE_COLUMNS: GroupableColumn[] = [
   { value: "none", label: "No Grouping" },
@@ -37,6 +37,7 @@ const GROUPABLE_COLUMNS: GroupableColumn[] = [
   { value: "priority", label: "Priority" },
   { value: "project_area", label: "Project Area" },
   { value: "project_name", label: "Project Name" },
+  { value: "team_roster", label: "Team Roster" },
 ];
 
 // All columns for visibility dropdown
@@ -286,11 +287,10 @@ export function TabulatorProjectsTable({
             const value = cell.getValue();
             const colors: Record<string, string> = {
               "Not Started": "#6b7280",
-              "In Progress": "#3b82f6",
-            "Blocked": "#ef4444",
-              "On Hold": "#eab308",
-              "Completed": "#22c55e",
-            "Cancelled": "#9ca3af",
+              "In Progress": "#f97316",
+              "Done": "#22c55e",
+              "On Hold": "#3b82f6",
+              "Abandoned": "#9ca3af",
             };
             const color = colors[value] || "#6b7280";
             return `<span style="background: ${color}20; color: ${color}; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;">${value}</span>`;
@@ -341,8 +341,31 @@ export function TabulatorProjectsTable({
           return `<span style="background: #fef3c7; color: #92400e; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;">${value}</span>`;
         },
       },
-      { title: "Details", field: "description", width: 300, editor: "textarea", headerFilter: "input" },
-      { title: "Progress Notes", field: "additional_notes", width: 250, editor: "textarea", headerFilter: "input" },
+      { 
+        title: "Details", 
+        field: "description", 
+        width: 300, 
+        editor: "input",
+        headerFilter: "input",
+        formatter: (cell) => {
+          const value = cell.getValue();
+          if (!value) return "";
+          // Truncate long text with ellipsis
+          return `<div style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${value.replace(/"/g, '&quot;')}">${value}</div>`;
+        },
+      },
+      { 
+        title: "Progress Notes", 
+        field: "additional_notes", 
+        width: 250, 
+        editor: "input",
+        headerFilter: "input",
+        formatter: (cell) => {
+          const value = cell.getValue();
+          if (!value) return "";
+          return `<div style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${value.replace(/"/g, '&quot;')}">${value}</div>`;
+        },
+      },
         {
           title: "Tags",
           field: "tags",

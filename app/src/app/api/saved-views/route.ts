@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/server";
 
 export async function GET(request: NextRequest) {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const searchParams = request.nextUrl.searchParams;
   const tableName = searchParams.get("table");
 
@@ -30,10 +30,13 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const body = await request.json();
 
-  const { name, table_name, view_type, filters, group_by, search_term, hidden_columns } = body;
+  const { 
+    name, table_name, view_type, filters, group_by, search_term, 
+    hidden_columns, column_order, column_widths, sort_config 
+  } = body;
 
   if (!name || !table_name) {
     return NextResponse.json(
@@ -53,6 +56,9 @@ export async function POST(request: NextRequest) {
         group_by: group_by || null,
         search_term: search_term || null,
         hidden_columns: hidden_columns || [],
+        column_order: column_order || [],
+        column_widths: column_widths || {},
+        sort_config: sort_config || [],
       })
       .select()
       .single();

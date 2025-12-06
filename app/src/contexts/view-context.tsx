@@ -3,6 +3,16 @@
 import { createContext, useContext, useState, useEffect, ReactNode, useCallback, useMemo } from "react";
 import { FilterCondition } from "@/components/shared/filter-builder";
 
+export interface ColumnConfig {
+  field: string;
+  width?: number;
+}
+
+export interface SortConfig {
+  column: string;
+  dir: "asc" | "desc";
+}
+
 export interface SavedView {
   id: string;
   name: string;
@@ -12,6 +22,9 @@ export interface SavedView {
   group_by: string | null;
   search_term: string | null;
   hidden_columns: string[];
+  column_order: string[];
+  column_widths: Record<string, number>;
+  sort_config: SortConfig[];
   created_at: string;
   updated_at: string;
 }
@@ -23,6 +36,9 @@ export interface ViewState {
   groupBy: string | null;
   searchTerm: string;
   hiddenColumns: string[];
+  columnOrder: string[];
+  columnWidths: Record<string, number>;
+  sortConfig: SortConfig[];
 }
 
 interface ViewContextType {
@@ -51,6 +67,9 @@ export function ViewProvider({ children }: { children: ReactNode }) {
     groupBy: null,
     searchTerm: "",
     hiddenColumns: [],
+    columnOrder: [],
+    columnWidths: {},
+    sortConfig: [],
   });
   
   const [savedViews, setSavedViews] = useState<SavedView[]>([]);
@@ -91,6 +110,9 @@ export function ViewProvider({ children }: { children: ReactNode }) {
           group_by: currentView.groupBy,
           search_term: currentView.searchTerm || null,
           hidden_columns: currentView.hiddenColumns || [],
+          column_order: currentView.columnOrder || [],
+          column_widths: currentView.columnWidths || {},
+          sort_config: currentView.sortConfig || [],
         }),
       });
 
@@ -136,6 +158,9 @@ export function ViewProvider({ children }: { children: ReactNode }) {
       groupBy: view.group_by,
       searchTerm: view.search_term || "",
       hiddenColumns: view.hidden_columns || [],
+      columnOrder: view.column_order || [],
+      columnWidths: view.column_widths || {},
+      sortConfig: view.sort_config || [],
     });
   }, []);
 
